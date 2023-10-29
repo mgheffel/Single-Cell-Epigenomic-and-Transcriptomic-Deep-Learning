@@ -4,7 +4,7 @@ Deep Neural Networks for single cell epigenomic and transcriptomic dataset imput
 # Models:  
 **Linear denoising**  
 Variational Autoencoder encoding and reconstructing single cell gene expression data and integrating with original data
-**Split Cross Modality Generation**
+**Split Cross Modality Generation** 
 Variatitional Autoencoder encoding and reconstructing single cell gene expression data and generating associated single cell ATAC peak data
 
 **UCLA_DEEP-LEARNING_COMSCI260C**
