@@ -82,10 +82,6 @@ class VAE:
 
                 # Iterate over the batches of the dataset.
                 for step, (x_batch_train) in enumerate(train_dataset):
-                        print(step)
-                        print(x_batch_train.shape)
-                        print(x_batch_train.index)
-                        print(x_batch_train)
                         with tf.GradientTape() as encoder_tape, tf.GradientTape() as decoder_tape:
                                 self.mu, self.sigma =self.encoder(x_batch_train, training=True)
                                 latent = self.sampler([self.mu, self.sigma])
@@ -121,11 +117,15 @@ class VAE:
                         self.mu, self.sigma = self.encoder(x_batch_test, training=False)
                         latent = self.sampler([self.mu, self.sigma])
                         test_logits = self.decoder(latent, training=False)
+                        
+                        test_loss_value = self.vae_loss(x_batch_test, test_logits)
                         # Update val metrics
                         test_acc_metric.update_state(x_batch_test, test_logits)
+                        
                 test_acc = test_acc_metric.result()
                 test_acc_metric.reset_states()
                 print("Validation acc: %.4f" % (float(test_acc),))
+                print('Validation loss: '+str(test_loss_value))
 
                 if self.kappa < 0.95:
                         self.kappa += 0.25

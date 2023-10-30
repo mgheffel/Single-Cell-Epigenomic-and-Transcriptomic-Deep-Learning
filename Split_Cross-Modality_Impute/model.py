@@ -56,16 +56,20 @@ class VAE:
         input_latent = keras.Input(shape=(32,))
         out_pred_left=layers.Dense(self.input_shape,activation='linear',name='out_pred')(input_latent)
         out_pred_right=layers.Dense(self.input_shape,activation='linear',name='out_pred')(input_latent)
-        return Model(input_latent, out_pred_left, out_pred_right, name='decoder')
+        return Model(input_latent, (out_pred_left,out_pred_right), name='decoder')
 
     def vae_loss(self, y_true_left, y_pred_left, y_true_right, y_pred_right):
 
-        squared_error = tf.math.square(tf.math.subtract(tf.cast(y_true, tf.float64), tf.cast(y_pred, tf.float64)))
-        recon = squared_error
+        squared_error_left = tf.math.square(tf.math.subtract(tf.cast(y_true_left, tf.float64), tf.cast(y_pred_left, tf.float64)))
+        recon_left = squared_error_left
+        squared_error_right = tf.math.square(tf.math.subtract(tf.cast(y_true_right, tf.float64), tf.cast(y_pred_right, tf.float64)))
+        recon_right = squared_error_right
         kl = K.mean(0.5*K.sum(K.exp(self.sigma) + K.square(self.mu) - 1. - self.sigma, axis=1))
-        recon = tf.cast(recon, dtype=tf.float64)  # Convert to double if needed
+        recon_left = tf.cast(recon_left, dtype=tf.float64)  # Convert to double if needed
+        recon_right = tf.cast(recon_right, dtype=tf.float64)  # Convert to double if needed
         self.kappa = tf.cast(self.kappa, dtype=tf.float64)  # Convert to double if needed
         kl = tf.cast(kl, dtype=tf.float64)
+        recon=tf.math.add(recon_left,recon_right)
         return tf.math.add(tf.math.multiply(200,recon), tf.math.multiply(self.kappa,kl))
     
     def train_vae(self,train_dataset_left,train_dataset_right,test_dataset_left,test_dataset_right):
@@ -86,13 +90,13 @@ class VAE:
                 combine_lr=y_true_left+y_true_right
                 # Iterate over the batches of the dataset.
                 # adding LR here
-                for step, (x_batch_train) in enumerate(zip(train_dataset_left, train_dataset_right)):
+                for step, (x_batch_train_left,x_batch_train_right) in enumerate(zip(train_dataset_left, train_dataset_right)):
                         with tf.GradientTape() as encoder_tape, tf.GradientTape() as decoder_tape:
-                                self.mu, self.sigma =self.encoder(x_batch_train, training=True)
+                                self.mu, self.sigma =self.encoder(x_batch_train_left, training=True)
                                 latent = self.sampler([self.mu, self.sigma])
-                                logits=self.decoder(latent, training=True)
+                                logits_left,logits_right=self.decoder(latent, training=True)
                                 loss_value = self.vae_loss(x_batch_train, logits)
-                                # print(loss_value)
+                                # print(loss_value.shape)
                         encoder_grads = encoder_tape.gradient(loss_value, self.encoder.trainable_weights)
                         decoder_grads = decoder_tape.gradient(loss_value, self.decoder.trainable_weights)
                         self.optimizer.apply_gradients(zip(encoder_grads, self.encoder.trainable_weights))
