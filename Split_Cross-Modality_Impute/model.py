@@ -8,7 +8,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 from tensorflow.keras import backend as K
-from keras.utils import plot_model
+# from keras.utils import plot_model
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
@@ -54,12 +54,15 @@ class VAE:
 
     def generate_decoder(self):
         input_latent = keras.Input(shape=(32,))
-        out_pred_left=layers.Dense(self.input_shape,activation='linear',name='out_pred')(input_latent)
-        out_pred_right=layers.Dense(self.input_shape,activation='linear',name='out_pred')(input_latent)
+        out_pred_left=layers.Dense(self.input_shape,activation='linear',name='out_pred_left')(input_latent)
+        out_pred_right=layers.Dense(self.input_shape,activation='linear',name='out_pred_right')(input_latent)
         return Model(input_latent, (out_pred_left,out_pred_right), name='decoder')
+    
+    def recon_loss(self,y_true,y_pred):
+        recon=tf.math.square(tf.math.subtract(tf.cast(y_true, tf.float64), tf.cast(y_pred, tf.float64)))
+        return recon
 
     def vae_loss(self, y_true_left, y_pred_left, y_true_right, y_pred_right):
-
         squared_error_left = tf.math.square(tf.math.subtract(tf.cast(y_true_left, tf.float64), tf.cast(y_pred_left, tf.float64)))
         recon_left = squared_error_left
         squared_error_right = tf.math.square(tf.math.subtract(tf.cast(y_true_right, tf.float64), tf.cast(y_pred_right, tf.float64)))
@@ -87,7 +90,7 @@ class VAE:
                 start_time = time.time()
                 
                 #enumarate left and right togehter?
-                combine_lr=y_true_left+y_true_right
+#                 combine_lr=y_true_left+y_true_right
                 # Iterate over the batches of the dataset.
                 # adding LR here
                 for step, (x_batch_train_left,x_batch_train_right) in enumerate(zip(train_dataset_left, train_dataset_right)):
@@ -95,7 +98,7 @@ class VAE:
                                 self.mu, self.sigma =self.encoder(x_batch_train_left, training=True)
                                 latent = self.sampler([self.mu, self.sigma])
                                 logits_left,logits_right=self.decoder(latent, training=True)
-                                loss_value = self.vae_loss(x_batch_train, logits)
+                                loss_value = self.vae_loss(x_batch_train_left, logits_left, x_batch_train_right, logits_right)
                                 # print(loss_value.shape)
                         encoder_grads = encoder_tape.gradient(loss_value, self.encoder.trainable_weights)
                         decoder_grads = decoder_tape.gradient(loss_value, self.decoder.trainable_weights)
@@ -119,13 +122,13 @@ class VAE:
                 train_acc_metric.reset_states()
 
                 # Run a validation loop at the end of each epoch.
-                for x_batch_test in test_dataset:
+                for x_batch_test in test_dataset_left:
                         self.mu, self.sigma = self.encoder(x_batch_test, training=False)
                         latent = self.sampler([self.mu, self.sigma])
-                        test_logits = self.decoder(latent, training=False)
+                        test_logits_left,test_logits_right = self.decoder(latent, training=False)
                         # test_logits = self.model(x_batch_test, training=False)
                         # Update val metrics
-                        test_acc_metric.update_state(x_batch_test, test_logits)
+                        test_acc_metric.update_state(x_batch_test_left, test_logits_left)
                 test_acc = test_acc_metric.result()
                 test_acc_metric.reset_states()
                 print("Validation acc: %.4f" % (float(test_acc),))
